@@ -2,12 +2,9 @@
 
 module ModTT where
 
-open import Agda.Builtin.Equality
+open import Relation.Binary.PropositionalEquality as Eq using (_≡_; refl)
 open import Agda.Builtin.Equality.Rewrite
-open import Data.Unit renaming (⊤ to unit; tt to triv)
-open import Data.Product as Product using (_,_; proj₁; proj₂)
-import Relation.Binary.PropositionalEquality as Eq
-open import Function.Base using (_∘_; case_of_)
+open import Data.Product as Product using (_,_; proj₁; proj₂) public
 
 Jdg = Set
 
@@ -83,54 +80,3 @@ postulate
   error : Val (◇ σ)
   bind/error : {F : Val σ₁ → Cmd σ₂} → bind {σ₁} error F ≡ error
   {-# REWRITE bind/error #-}
-
-EQ : Sig
-EQ = Σ type λ t → ⟨| t ⇀ t ⇀ bool |⟩
-
--- EQ where type t = t
-EQ' : Val type → Sig
-EQ' t =
-  Ext EQ λ lock →
-    t , trivially (conn/dyn {t = t ⇀ t ⇀ bool}) lock
-
-BoolEq : Cmd (EQ' bool)
-BoolEq =
-  ret (
-    (bool , λ b₁ → ret (λ b₂ → ret (if {⟨| bool |⟩} b₁ b₂ (not b₂)))) ,
-    λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
-  )
-  where
-    not : Val ⟨| bool |⟩ → Val ⟨| bool |⟩
-    not b = if {⟨| bool |⟩} b ff tt
-
-BoolEqSealed : Cmd EQ
-BoolEqSealed = bind BoolEq λ (X , _) → ret X
-
-BoolEqError₁ : Cmd (EQ' bool)
-BoolEqError₁ = error
-
-BoolEqError₂ : Cmd (EQ' bool)
-BoolEqError₂ =
-  ret (
-    (bool , λ b₁ → error) ,
-    λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
-  )
-
-_<*>_ : Cmd ⟨| t₁ ⇀ t₂ |⟩ → Cmd ⟨| t₁ |⟩ → Cmd ⟨| t₂ |⟩
-f' <*> x' =
-  bind f' λ f →
-    bind x' λ x →
-      f x
-
-private
-  ex : Cmd ⟨| bool |⟩
-  ex =
-    bind BoolEq λ ((t , eq) , h) →
-      let
-        where-clause : ◯ (t ≡ bool)
-        where-clause u = Eq.cong proj₁ (h u)
-      in
-      eq (tt via where-clause) <*> ret (ff via where-clause)
-
-  _ : ex ≡ ret ff
-  _ = refl
