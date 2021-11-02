@@ -7,7 +7,7 @@ open import Agda.Builtin.Equality.Rewrite
 open import Data.Unit renaming (⊤ to unit; tt to triv)
 open import Data.Product as Product using (_,_; proj₁; proj₂)
 import Relation.Binary.PropositionalEquality as Eq
-open import Function.Base using (case_of_)
+open import Function.Base using (_∘_; case_of_)
 
 Jdg = Set
 
@@ -74,6 +74,11 @@ postulate
   bind/error : {F : Val σ₁ → Cmd σ₂} → bind {σ₁} error F ≡ error
   {-# REWRITE bind/error #-}
 
+  -- Is this correct?
+  law/type-eq/static : ◯ (t₁ ≡ t₂) → t₁ ≡ t₂
+  law/type-eq/static/refl : {h : ◯ (t ≡ t)} → law/type-eq/static h ≡ refl
+  {-# REWRITE law/type-eq/static/refl #-}
+
 EQ : Sig
 EQ = Σ type λ t → ⟨| t ⇀ t ⇀ bool |⟩
 
@@ -83,18 +88,42 @@ EQ' t =
   Ext EQ λ lock →
     t , trivially (conn/dyn {t = t ⇀ t ⇀ bool}) lock
 
-BoolEq : Val (EQ' bool)
+BoolEq : Cmd (EQ' bool)
 BoolEq =
-  (bool , λ b₁ → ret (λ b₂ → ret (if {⟨| bool |⟩} b₁ b₂ (not b₂)))) ,
-  λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
+  ret (
+    (bool , λ b₁ → ret (λ b₂ → ret (if {⟨| bool |⟩} b₁ b₂ (not b₂)))) ,
+    λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
+  )
   where
     not : Val ⟨| bool |⟩ → Val ⟨| bool |⟩
     not b = if {⟨| bool |⟩} b ff tt
 
-BoolEqSealed : Val EQ
-BoolEqSealed = proj₁ BoolEq
+BoolEqSealed : Cmd EQ
+BoolEqSealed = bind BoolEq λ (X , _) → ret X
 
-BoolEqError : Val (EQ' bool)
-BoolEqError =
-  (bool , λ b₁ → error) ,
-  λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
+BoolEqError₁ : Cmd (EQ' bool)
+BoolEqError₁ = error
+
+BoolEqError₂ : Cmd (EQ' bool)
+BoolEqError₂ =
+  ret (
+    (bool , λ b₁ → error) ,
+    λ lock → Eq.cong (bool ,_) (trivially-eq (conn/dyn {t = bool ⇀ bool ⇀ bool}) lock)
+  )
+
+_<*>_ : Cmd ⟨| t₁ ⇀ t₂ |⟩ → Cmd ⟨| t₁ |⟩ → Cmd ⟨| t₂ |⟩
+f' <*> x' =
+  bind f' λ f →
+    bind x' λ x →
+      f x
+
+private
+  ex : Cmd ⟨| bool |⟩
+  ex =
+    bind BoolEq λ ((t , eq) , h) →
+      case (law/type-eq/static (Eq.cong proj₁ ∘ h)) of λ { refl →
+        eq tt <*> ret ff
+      }
+
+  _ : ex ≡ ret ff
+  _ = refl
