@@ -41,8 +41,8 @@ Cmd σ = Val (◇ σ)
 variable
   t t₁ t₂ : Val type
 
-_via_ : Val ⟨| t₂ |⟩ → ◯ (t₁ ≡ t₂) → Val ⟨| t₁ |⟩
-_via_ M h = law/static-typechecking (λ u → Eq.sym (Eq.cong ⟨|_|⟩ (h u))) M
+_via_ : Val ⟨| t₁ |⟩ → ◯ (t₁ ≡ t₂) → Val ⟨| t₂ |⟩
+_via_ M h = law/static-typechecking (λ u → Eq.cong ⟨|_|⟩ (h u)) M
 
 postulate
   Π/val : Val (Π σ τ) ≡ ((x : Val σ) → Val (τ x))

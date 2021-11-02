@@ -48,8 +48,8 @@ private
   ex =
     bind BoolEq λ ((t , eq) , h) →
       let
-        where-clause : ◯ (t ≡ bool)
-        where-clause u = Eq.cong proj₁ (h u)
+        where-clause : ◯ (bool ≡ t)
+        where-clause u = Eq.sym (Eq.cong proj₁ (h u))
       in
       eq (tt via where-clause) <*> ret (ff via where-clause)
 
