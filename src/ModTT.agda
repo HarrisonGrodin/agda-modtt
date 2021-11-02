@@ -22,6 +22,15 @@ postulate
   Sig : Jdg
   Val : Sig → Jdg
 
+variable
+  σ σ₁ σ₂ σ₃ : Sig
+  τ : Val σ → Sig
+
+postulate
+  law/static-typechecking : ◯ (σ₁ ≡ σ₂) → Val σ₁ → Val σ₂
+  law/static-typechecking/refl : (h : ◯ (σ ≡ σ)) (M : Val σ) → law/static-typechecking h M ≡ M
+  {-# REWRITE law/static-typechecking/refl #-}
+
 postulate
   type : Sig
   ⟨|_|⟩ : Val type → Sig
@@ -33,9 +42,10 @@ Cmd : Sig → Jdg
 Cmd σ = Val (◇ σ)
 
 variable
-  σ σ₁ σ₂ σ₃ : Sig
-  τ : Val σ → Sig
   t t₁ t₂ : Val type
+
+_via_ : Val ⟨| t₂ |⟩ → ◯ (t₁ ≡ t₂) → Val ⟨| t₁ |⟩
+_via_ M h = law/static-typechecking (λ u → Eq.sym (Eq.cong ⟨|_|⟩ (h u))) M
 
 postulate
   Π/val : Val (Π σ τ) ≡ ((x : Val σ) → Val (τ x))
@@ -73,11 +83,6 @@ postulate
   error : Val (◇ σ)
   bind/error : {F : Val σ₁ → Cmd σ₂} → bind {σ₁} error F ≡ error
   {-# REWRITE bind/error #-}
-
-  -- Is this correct?
-  law/type-eq/static : ◯ (t₁ ≡ t₂) → t₁ ≡ t₂
-  law/type-eq/static/refl : {h : ◯ (t ≡ t)} → law/type-eq/static h ≡ refl
-  {-# REWRITE law/type-eq/static/refl #-}
 
 EQ : Sig
 EQ = Σ type λ t → ⟨| t ⇀ t ⇀ bool |⟩
@@ -121,9 +126,11 @@ private
   ex : Cmd ⟨| bool |⟩
   ex =
     bind BoolEq λ ((t , eq) , h) →
-      case (law/type-eq/static (Eq.cong proj₁ ∘ h)) of λ { refl →
-        eq tt <*> ret ff
-      }
+      let
+        where-clause : ◯ (t ≡ bool)
+        where-clause u = Eq.cong proj₁ (h u)
+      in
+      eq (tt via where-clause) <*> ret (ff via where-clause)
 
   _ : ex ≡ ret ff
   _ = refl
